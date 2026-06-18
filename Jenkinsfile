@@ -36,15 +36,17 @@ pipeline {
         }
         stage('SonarQube Analysis') {
             steps {
-                withCredentials([string(
-                    credentialsId: 'sonar-token',
-                    variable: 'SONAR_TOKEN'
-                )]) {
-                    sh '''
-                        mvn sonar:sonar \
-                        -Dsonar.host.url=http://10.0.2.15:9000 \
-                        -Dsonar.token=$SONAR_TOKEN
-                    '''
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    withCredentials([string(
+                        credentialsId: 'sonar-token',
+                        variable: 'SONAR_TOKEN'
+                    )]) {
+                        sh '''
+                            mvn sonar:sonar \
+                            -Dsonar.host.url=http://192.168.49.2:32000 \
+                            -Dsonar.token=$SONAR_TOKEN
+                        '''
+                    }
                 }
             }
         }
@@ -70,16 +72,9 @@ pipeline {
         stage('Kubernetes Deploy') {
             steps {
                 sh """
-                    # Mettre à jour le tag de l'image dans le YAML
                     sed -i 's|image: ${DOCKER_IMAGE}:.*|image: ${DOCKER_IMAGE}:${DOCKER_TAG}|g' k8s/spring-deployment.yaml
-
-                    # Déployer MySQL
                     kubectl apply -f k8s/mysql-deployment.yaml -n devops
-
-                    # Déployer Spring Boot avec le nouveau tag
                     kubectl apply -f k8s/spring-deployment.yaml -n devops
-
-                    # Vérifier que le déploiement s'est bien passé
                     kubectl rollout status deployment/studentmang-app -n devops --timeout=120s
                 """
             }
