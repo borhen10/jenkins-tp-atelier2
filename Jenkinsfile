@@ -1,32 +1,26 @@
 pipeline {
     agent any
-
     tools {
         maven 'M2_HOME'
     }
-
     environment {
         DOCKER_IMAGE = 'borhen05/jenkins-tp'
         DOCKER_TAG = "v${BUILD_NUMBER}"
         JAVA_HOME = "/usr/lib/jvm/java-17-openjdk-amd64"
         PATH = "${JAVA_HOME}/bin:${env.PATH}"
     }
-
     stages {
-
         stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
-
         stage('Checkout') {
             steps {
                 git branch: 'main',
                     url: 'https://github.com/borhen10/jenkins-tp-atelier2.git'
             }
         }
-
         stage('Check Tools') {
             steps {
                 sh '''
@@ -35,13 +29,11 @@ pipeline {
                 '''
             }
         }
-
         stage('Maven Build') {
             steps {
                 sh 'mvn clean compile -U'
             }
         }
-
         stage('SonarQube Analysis') {
             steps {
                 withCredentials([string(
@@ -56,13 +48,11 @@ pipeline {
                 }
             }
         }
-
         stage('Docker Build') {
             steps {
                 sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
             }
         }
-
         stage('Docker Push') {
             steps {
                 withCredentials([usernamePassword(
@@ -77,14 +67,32 @@ pipeline {
                 }
             }
         }
-    }
+        stage('Kubernetes Deploy') {
+            steps {
+                sh """
+                    # Mettre à jour le tag de l'image dans le YAML
+                    sed -i 's|image: ${DOCKER_IMAGE}:.*|image: ${DOCKER_IMAGE}:${DOCKER_TAG}|g' k8s/spring-deployment.yaml
 
+                    # Déployer MySQL
+                    kubectl apply -f k8s/mysql-deployment.yaml -n devops
+
+                    # Déployer Spring Boot avec le nouveau tag
+                    kubectl apply -f k8s/spring-deployment.yaml -n devops
+
+                    # Vérifier que le déploiement s'est bien passé
+                    kubectl rollout status deployment/studentmang-app -n devops --timeout=120s
+                """
+            }
+        }
+    }
     post {
         success {
             echo 'Pipeline SUCCESS 🚀'
+            sh 'kubectl get pods -n devops'
         }
         failure {
             echo 'Pipeline FAILED ❌'
+            sh 'kubectl get pods -n devops'
         }
     }
 }
