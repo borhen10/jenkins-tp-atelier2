@@ -29,11 +29,11 @@ pipeline {
                 '''
             }
         }
-        stage('Maven Build') {
-            steps {
-                sh 'mvn clean compile -U'
-            }
-        }
+      stage('Maven Build') {
+    steps {
+        sh 'mvn clean package -DskipTests -U'
+    }
+}
         stage('SonarQube Analysis') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {

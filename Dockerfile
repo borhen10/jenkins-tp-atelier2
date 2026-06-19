@@ -1,2 +1,5 @@
-FROM ubuntu:22.04
-CMD ["echo", "Hello from Docker - Borhen05"]
+FROM eclipse-temurin:17-jdk-jammy
+WORKDIR /app
+COPY target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
