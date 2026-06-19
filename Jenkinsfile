@@ -29,11 +29,11 @@ pipeline {
                 '''
             }
         }
-      stage('Maven Build') {
-    steps {
-        sh 'mvn clean package -DskipTests -U'
-    }
-}
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean package -DskipTests -U'
+            }
+        }
         stage('SonarQube Analysis') {
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
@@ -63,7 +63,7 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh """
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
                         docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                     """
                 }
@@ -72,10 +72,15 @@ pipeline {
         stage('Kubernetes Deploy') {
             steps {
                 sh """
+                    # Met à jour le tag de l'image dynamiquement dans le fichier k8s
                     sed -i 's|image: ${DOCKER_IMAGE}:.*|image: ${DOCKER_IMAGE}:${DOCKER_TAG}|g' k8s/spring-deployment.yaml
+                    
+                    # Applique les configurations Kubernetes dans le namespace devops
                     kubectl apply -f k8s/mysql-deployment.yaml -n devops
                     kubectl apply -f k8s/spring-deployment.yaml -n devops
-                    kubectl rollout status deployment/studentmang-app -n devops --timeout=120s
+                    
+                    # Augmentation du timeout à 300s (5 minutes) pour éviter le faux échec de téléchargement
+                    kubectl rollout status deployment/studentmang-app -n devops --timeout=300s
                 """
             }
         }
